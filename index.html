@@ -1,0 +1,263 @@
+<head>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+    }
+
+    #stats {
+      display: flex;
+      gap: 2rem;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #container {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-evenly;
+    }
+
+    @media screen and (max-width: 1200px) {
+      #container {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+
+    h1,
+    h2 {
+      text-align: center;
+    }
+
+    .board {
+      display: inline-grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 3px;
+    }
+
+    #target-board {
+      opacity: 50%;
+    }
+
+    .field {
+      position: relative;
+      width: 8rem;
+      height: 8rem;
+      outline: 3px solid black;
+    }
+
+    .field-hidden {
+      visibility: hidden;
+    }
+
+    .field-dragging > div {
+      opacity: 20%;
+    }
+
+    .field-drop-target {
+      background-color: #ff69b420;
+    }
+
+    .knight {
+      width: 100%;
+      height: 100%;
+      background-size: 100%;
+    }
+
+    .white-knight {
+      background-image: url("https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg");
+    }
+
+    .black-knight {
+      background-image: url("https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg");
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Swap the Knights</h1>
+  <div id="stats">
+    <p id="time">00:00</p>
+    <p id="moves">Moves: 0</p>
+    <button onclick="location.reload()">Reset</button>
+  </div>
+
+  <div id="container">
+    <div id="puzle-container">
+      <h2>Puzzle</h2>
+      <div id="puzzle" class="board"></div>
+    </div>
+
+    <div id="target-container">
+      <h2>Target</h2>
+      <div id="target" class="board"></div>
+    </div>
+  </div>
+
+  <script>
+    const HIDDEN = 0;
+    const BLANK = 1;
+    const WHITE_KNIGHT = 2;
+    const BLACK_KNIGHT = 3;
+
+    const puzzleGrid = [
+      HIDDEN,
+      WHITE_KNIGHT,
+      HIDDEN,
+      HIDDEN,
+      //
+      HIDDEN,
+      BLANK,
+      BLANK,
+      HIDDEN,
+      //
+      HIDDEN,
+      BLANK,
+      WHITE_KNIGHT,
+      BLANK,
+      //
+      BLACK_KNIGHT,
+      BLANK,
+      BLACK_KNIGHT,
+      BLANK
+    ];
+
+    const targetGrid = [
+      HIDDEN,
+      BLACK_KNIGHT,
+      HIDDEN,
+      HIDDEN,
+      //
+      HIDDEN,
+      BLANK,
+      BLANK,
+      HIDDEN,
+      //
+      HIDDEN,
+      BLANK,
+      BLACK_KNIGHT,
+      BLANK,
+      //
+      WHITE_KNIGHT,
+      BLANK,
+      WHITE_KNIGHT,
+      BLANK
+    ];
+
+    const puzzleBoard = document.getElementById("puzzle");
+    const timeText = document.getElementById("time");
+    const movesText = document.getElementById("moves");
+
+    let moves = 0;
+    let startTime;
+
+    function createKnight(isBlack, interactive) {
+      const div = document.createElement("div");
+      div.classList.add("knight", isBlack ? "black-knight" : "white-knight");
+      div.draggable = interactive;
+      return div;
+    }
+
+    function canMoveFromTo(grid, from, to) {
+      if (grid[to] !== BLANK) return false;
+      const rowDiff = Math.abs(Math.floor(to / 4) - Math.floor(from / 4));
+      const colDiff = Math.abs((to % 4) - (from % 4));
+      return (colDiff === 2 && rowDiff === 1) || (colDiff === 1 && rowDiff === 2);
+    }
+
+    function formatDuration(ms) {
+      const format = n => n.toString().padStart(2, "0");
+
+      const h = Math.floor((ms % 86400000) / 3600000);
+      const m = Math.floor(((ms % 86400000) % 3600000) / 60000);
+      const s = Math.floor((((ms % 86400000) % 3600000) % 60000) / 1000);
+
+      let res = "";
+      if (h || res) res += `${format(h)}:`;
+      res += `${format(m)}:`;
+      res += `${format(s)}`;
+
+      return res;
+    }
+
+    function renderBoard(container, puzzleGrid, interactive) {
+      const fields = Array(puzzleGrid.length);
+      let dragee;
+
+      for (let i = 0; i < puzzleGrid.length; i++) {
+        const field = document.createElement("div");
+        field.className = "field";
+        fields[i] = field;
+        container.append(field);
+
+        switch (puzzleGrid[i]) {
+          case HIDDEN:
+            field.classList.add("field-hidden");
+            break;
+          case BLANK:
+            field.classList.add("field-blank");
+            break;
+          case WHITE_KNIGHT:
+            field.append(createKnight(false, interactive));
+            break;
+          case BLACK_KNIGHT:
+            field.append(createKnight(true, interactive));
+            break;
+        }
+
+        if (!interactive) continue;
+
+        field.addEventListener("dragover", e => {
+          if (canMoveFromTo(puzzleGrid, dragee.idx, i)) {
+            e.preventDefault();
+          }
+        });
+
+        field.addEventListener("dragstart", e => {
+          dragee = {
+            idx: i,
+            kind: puzzleGrid[i]
+          };
+
+          field.classList.add("field-dragging");
+          for (let i = 0; i < puzzleGrid.length; i++) {
+            if (canMoveFromTo(puzzleGrid, dragee.idx, i)) {
+              fields[i].classList.add("field-drop-target");
+            }
+          }
+        });
+
+        field.addEventListener("dragend", e => {
+          field.classList.remove("field-dragging");
+          for (let i = 0; i < puzzleGrid.length; i++) {
+            fields[i].classList.remove("field-drop-target");
+          }
+        });
+
+        field.addEventListener("drop", e => {
+          const { idx, kind } = dragee;
+
+          const knight = fields[idx].firstElementChild;
+          // appending to field will remove it from the previous field
+          field.append(knight);
+
+          puzzleGrid[idx] = BLANK;
+          puzzleGrid[i] = kind;
+
+          moves++;
+          movesText.textContent = `Moves: ${moves}`;
+          if (moves === 1) {
+            startTime = Date.now();
+            setInterval(() => {
+              timeText.textContent = `${formatDuration(Date.now() - startTime)}`;
+            }, 1000);
+          }
+        });
+      }
+    }
+
+    renderBoard(document.getElementById("puzzle"), puzzleGrid, true);
+    renderBoard(document.getElementById("target"), targetGrid, false);
+  </script>
+</body>
