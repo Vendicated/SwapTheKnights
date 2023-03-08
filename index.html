@@ -1,4 +1,5 @@
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
       font-family: system-ui, sans-serif;
@@ -194,9 +195,6 @@
         switch (puzzleGrid[i]) {
           case HIDDEN:
             field.classList.add("field-hidden");
-            break;
-          case BLANK:
-            field.classList.add("field-blank");
             break;
           case WHITE_KNIGHT:
             field.append(createKnight(false, interactive));
