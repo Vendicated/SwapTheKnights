@@ -236,6 +236,8 @@
         field.addEventListener("drop", e => {
           const { idx, kind } = dragee;
 
+          fields[idx].classList.remove("field-dragging");
+
           const knight = fields[idx].firstElementChild;
           // appending to field will remove it from the previous field
           field.append(knight);
